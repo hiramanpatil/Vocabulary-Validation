@@ -1,0 +1,114 @@
+<?php
+
+/**
+ * @file
+ * Vocabulary validation module file.
+ */
+
+/**
+ * Implements hook_help().
+ */
+function vocabulary_validation_help($path, $arg) {
+  $output = '';
+  switch ($path) {
+    case 'admin/help#vocabulary_validation':
+      $output = '<p>' . t('This module helps to validate vocabulary with min/max characters, blacklist special characters, significant words.') . '</p>';
+      $output .= '<p>' . t('Validate the vocabulary by:') . '</p>';
+      $output .= '<ul>';
+      $output .= '<li>' . t('Special character & blacklisted words.') . '</li>';
+      $output .= '<li>' . t('Length (optionally specify min and/or max length.)') . '</li>';
+      $output .= '</ul>';
+      break;
+  }
+  return $output;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function vocabulary_validation_permission() {
+  return array(
+    'vocabulary_validation config' => array(
+      'title' => t('Configuration page of vocabulary validation'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function vocabulary_validation_menu() {
+  $items = array();
+  $items['admin/config/people/vocabulary-validation'] = array(
+    'title' => 'Vocabulary validation',
+    'description' => 'Validating vocabulary name',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('_vocabulary_validation_admin_form'),
+    'access arguments' => array('vocabulary validation config'),
+    'file' => 'vocabulary_validation.admin.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function vocabulary_validation_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'taxonomy_form_vocabulary') {
+    $form['#validate'][] = 'vocabulary_validation_vocabulary_validate';
+  }
+}
+
+/**
+ * Validate function 'vocabulary_validation_vocabulary_validate'.
+ */
+function vocabulary_validation_vocabulary_validate($form, &$form_state) {
+
+  $vocabulary_validation_rule = variable_get('vocabulary_validation_rule', array());
+  $vocabulary = $form['name']['#value'];
+  $min_char = $vocabulary_validation_rule['min_char'];
+  $max_char = $vocabulary_validation_rule['max_char'];
+  $blacklist_char = isset($vocabulary_validation_rule['blacklist_char']) ? $vocabulary_validation_rule['blacklist_char'] : '';
+  if (!empty($blacklist_char)) {
+    // Replace \r\n with comma.
+    $blacklist_char = str_replace("\r\n", ',', $blacklist_char);
+    // Store into array.
+    $blacklist_char = explode(',', $blacklist_char);
+    // Find any exclude value found in vocabulary.
+    $findings = _vocabulary_validation_search_excludes_in_title($vocabulary, $blacklist_char);
+    if ($findings) {
+      form_set_error('name', t('The characters/words are not allowed to enter in the vocabulary - @findings', array('@findings' => implode(' ', $findings))));
+    }
+  }
+  if (strlen($vocabulary) < $min_char) {
+    form_set_error('vocabulary', t('Vocabulary should have minimum of @min_char characters', array('@min_char' => $min_char)));
+  }
+  if (strlen($vocabulary) > $max_char) {
+    form_set_error('vocabulary', t('Vocabulary should have maximum of @max_char characters', array('@max_char' => $max_char)));
+  }
+}
+
+/**
+ * Helper function to find any exclude values in vocabulary.
+ */
+function _vocabulary_validation_search_excludes_in_title($input, $find) {
+  $findings = array();
+  // Finding characters in the vocabulary.
+  foreach ($find as $char) {
+    // Check for single character.
+    if (drupal_strlen($char) == 1) {
+      if (strpos($input, trim($char)) !== FALSE) {
+        $findings[] = trim($char);
+      }
+    }
+  }
+  // Finding words in the vocabulary.
+  $words = explode(' ', $input);
+  foreach ($words as $word) {
+    $word = trim($word);
+    if (in_array($word, $find)) {
+      $findings[] = $word;
+    }
+  }
+  return $findings;
+}

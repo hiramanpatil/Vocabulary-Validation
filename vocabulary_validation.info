@@ -1,0 +1,5 @@
+name = Vocabulary Validation
+description = This module helps to validate Vocabulary name with min/max characters, blacklist characters/words.
+package = Other
+core = 7.x
+configure = admin/config/people/vocabulary-validation
