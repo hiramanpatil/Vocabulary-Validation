@@ -24,7 +24,7 @@ INSTALLATION:
 
 CONFIGURATION:
 -------------
-1. Once the module is activated, go to admin/config/people/vocabulary-validation
+1. Activate module and go to admin/structure/taxonomy/vocabulary-validation
 2. enter blacklist characters and/or words in given textarea
 3. Enter minimum characters value
 4. Enter maximum characters value
