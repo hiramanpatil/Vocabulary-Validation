@@ -39,7 +39,7 @@ function vocabulary_validation_permission() {
  */
 function vocabulary_validation_menu() {
   $items = array();
-  $items['admin/config/people/vocabulary-validation'] = array(
+  $items['admin/structure/taxonomy/vocabulary-validation'] = array(
     'title' => 'Vocabulary validation',
     'description' => 'Validating vocabulary name',
     'page callback' => 'drupal_get_form',
@@ -51,40 +51,55 @@ function vocabulary_validation_menu() {
 }
 
 /**
- * Implements hook_form_alter().
+ * Implements hook_form_FORM_ID_alter().
  */
-function vocabulary_validation_form_alter(&$form, &$form_state, $form_id) {
-  if ($form_id == 'taxonomy_form_vocabulary') {
+function vocabulary_validation_form_taxonomy_form_vocabulary_alter(&$form, &$form_state, $form_id) {
     $form['#validate'][] = 'vocabulary_validation_vocabulary_validate';
-  }
 }
 
 /**
  * Validate function 'vocabulary_validation_vocabulary_validate'.
  */
 function vocabulary_validation_vocabulary_validate($form, &$form_state) {
-
-  $vocabulary_validation_rule = variable_get('vocabulary_validation_rule', array());
-  $vocabulary = $form['name']['#value'];
-  $min_char = $vocabulary_validation_rule['min_char'];
-  $max_char = $vocabulary_validation_rule['max_char'];
-  $blacklist_char = isset($vocabulary_validation_rule['blacklist_char']) ? $vocabulary_validation_rule['blacklist_char'] : '';
-  if (!empty($blacklist_char)) {
-    // Replace \r\n with comma.
-    $blacklist_char = str_replace("\r\n", ',', $blacklist_char);
-    // Store into array.
-    $blacklist_char = explode(',', $blacklist_char);
-    // Find any exclude value found in vocabulary.
-    $findings = _vocabulary_validation_search_excludes_in_title($vocabulary, $blacklist_char);
-    if ($findings) {
-      form_set_error('name', t('The characters/words are not allowed to enter in the vocabulary - @findings', array('@findings' => implode(' ', $findings))));
+  if($form_state['triggering_element']['#value'] == 'Save') {
+    $vocabulary_validation_rule = variable_get('vocabulary_validation_rule', array());
+    $vocabulary = $form['name']['#value'];
+    if (!empty($vocabulary_validation_rule)) {
+      $min_char = $vocabulary_validation_rule['min_char'];
+      $max_char = $vocabulary_validation_rule['max_char'];
     }
-  }
-  if (strlen($vocabulary) < $min_char) {
-    form_set_error('vocabulary', t('Vocabulary should have minimum of @min_char characters', array('@min_char' => $min_char)));
-  }
-  if (strlen($vocabulary) > $max_char) {
-    form_set_error('vocabulary', t('Vocabulary should have maximum of @max_char characters', array('@max_char' => $max_char)));
+    $blacklist_char = '';
+    if (isset($vocabulary_validation_rule['blacklist_char'])) {
+      $blacklist_char = $vocabulary_validation_rule['blacklist_char'];
+    }
+
+    if (!empty($blacklist_char)) {
+      // Replace \r\n with comma.
+      $blacklist_char = str_replace("\r\n", ',', $blacklist_char);
+      // Store into array.
+      $blacklist_char = explode(',', $blacklist_char);
+      // Find any exclude value found in vocabulary.
+      $findings = _vocabulary_validation_search_excludes_in_title($vocabulary, $blacklist_char);
+      if ($findings) {
+        form_set_error('name',
+        t('The characters/words are not allowed to enter in the vocabulary - @findings',
+        array('@findings' => implode(' ', $findings))));
+      }
+    }
+    if(isset($min_char)) {
+      if (strlen($vocabulary) < $min_char) {
+        form_set_error('vocabulary',
+        t('Vocabulary should have minimum of @min_char characters',
+        array('@min_char' => $min_char)));
+      }
+    }
+    if(isset($max_char)) {
+      if (strlen($vocabulary) > $max_char) {
+        form_set_error('vocabulary',
+        t('Vocabulary should have maximum of @max_char characters',
+        array('@max_char' => $max_char)));
+      }
+    }
   }
 }
 
@@ -94,20 +109,21 @@ function vocabulary_validation_vocabulary_validate($form, &$form_state) {
 function _vocabulary_validation_search_excludes_in_title($input, $find) {
   $findings = array();
   // Finding characters in the vocabulary.
-  foreach ($find as $char) {
-    // Check for single character.
-    if (drupal_strlen($char) == 1) {
+  $words = explode(' ', $input);
+  if(count($words) <= 1) {
+    foreach ($find as $char) {
       if (strpos($input, trim($char)) !== FALSE) {
         $findings[] = trim($char);
       }
     }
   }
-  // Finding words in the vocabulary.
-  $words = explode(' ', $input);
-  foreach ($words as $word) {
-    $word = trim($word);
-    if (in_array($word, $find)) {
-      $findings[] = $word;
+  else {
+    // Finding words in the vocabulary.
+    foreach ($words as $word) {
+      $word = trim($word);
+      if (in_array($word, $find)) {
+        $findings[] = $word;
+      }
     }
   }
   return $findings;
